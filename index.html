@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Інтерактивна карта світу</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-inner">
+        <span class="header-icon">🌍</span>
+        <h1 class="header-title">Інтерактивна карта світу</h1>
+        <span class="header-sub">Натисніть на фільтр для підсвічування країн</span>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <!-- ───── SIDEBAR ───── -->
+      <aside class="sidebar">
+
+        <!-- Country search -->
+        <div class="search-box" id="search-box">
+          <div class="search-input-wrap">
+            <span class="search-icon">🔍</span>
+            <input
+              type="text"
+              id="search-input"
+              class="search-input"
+              placeholder="Пошук країни..."
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button class="search-clear" id="search-clear" style="display:none">✕</button>
+          </div>
+          <ul class="search-dropdown" id="search-dropdown" style="display:none"></ul>
+        </div>
+
+        <!-- Filter buttons -->
+        <section class="sidebar-section">
+          <div class="sidebar-section-header">
+            <h2 class="sidebar-section-title">Фільтри</h2>
+            <button class="filter-reset-btn" id="filter-reset" style="display:none">✕ Скинути</button>
+          </div>
+          <div class="filter-list" id="filter-list">
+
+            <button class="filter-btn" data-filter="continents"
+                    style="--filter-color: #a78bfa;">
+              <span class="filter-icon">🌐</span>
+              <span class="filter-label">Материки</span>
+              <span class="filter-badge" id="badge-continents">7</span>
+            </button>
+
+            <button class="filter-btn" data-filter="europe"
+                    style="--filter-color: #74c0fc;">
+              <span class="filter-icon">🔵</span>
+              <span class="filter-label">Європа</span>
+              <span class="filter-badge" id="badge-europe">46</span>
+            </button>
+
+            <button class="filter-btn" data-filter="asia"
+                    style="--filter-color: #8ce99a;">
+              <span class="filter-icon">🟢</span>
+              <span class="filter-label">Азія</span>
+              <span class="filter-badge" id="badge-asia">47</span>
+            </button>
+
+            <button class="filter-btn" data-filter="eu"
+                    style="--filter-color: #4dabf7;">
+              <span class="filter-icon">⭐</span>
+              <span class="filter-label">ЄС</span>
+              <span class="filter-badge" id="badge-eu">27</span>
+            </button>
+
+            <button class="filter-btn" data-filter="schengen"
+                    style="--filter-color: #a9e34b;">
+              <span class="filter-icon">🛂</span>
+              <span class="filter-label">Шенген</span>
+              <span class="filter-badge" id="badge-schengen">29</span>
+            </button>
+
+            <button class="filter-btn" data-filter="visafree"
+                    style="--filter-color: #ffa94d;">
+              <span class="filter-icon">🇺🇦</span>
+              <span class="filter-label">Безвіз 🇺🇦</span>
+              <span class="filter-badge" id="badge-visafree">75</span>
+            </button>
+
+            <button class="filter-btn" data-filter="disputed"
+                    style="--filter-color: #ff6b6b;">
+              <span class="filter-icon">⚠️</span>
+              <span class="filter-label">Спірні</span>
+              <span class="filter-badge" id="badge-disputed">4</span>
+            </button>
+
+            <button class="filter-btn" data-filter="microstates" style="--filter-color: #e599f7;">
+              <span class="filter-icon">🏛</span>
+              <span class="filter-label">Мікродержави</span>
+              <span class="filter-badge" id="badge-microstates">33</span>
+            </button>
+
+            <button class="filter-btn" data-filter="visited" style="--filter-color: #ffd43b;">
+              <span class="filter-icon">✈️</span>
+              <span class="filter-label">Відвідані</span>
+              <span class="filter-badge" id="badge-visited">0</span>
+            </button>
+
+          </div>
+        </section>
+
+        <!-- Visited stats -->
+        <div class="visited-stats" id="visited-stats">
+          <div class="visited-stats-row">
+            <span>✈️ Відвідано:</span>
+            <span class="visited-count" id="visited-count">0 / 195 (0%)</span>
+            <div class="visited-actions">
+              <button class="visited-action-btn" id="btn-export-visited" title="Експортувати список відвіданих">⬇</button>
+              <button class="visited-action-btn" id="btn-import-visited" title="Імпортувати список відвіданих">⬆</button>
+              <input type="file" id="import-file-input" accept=".json" style="display:none">
+            </div>
+          </div>
+          <div class="visited-stats-row">
+            <span class="visited-percentile" id="visited-percentile" style="display:none"></span>
+          </div>
+        </div>
+
+        <!-- Legend (shown only for "Материки") -->
+        <section class="sidebar-section legend-section" id="legend-section" style="display:none;">
+          <h2 class="sidebar-section-title">Легенда</h2>
+          <ul class="legend-list" id="legend-list">
+            <li class="legend-item"><span class="legend-dot" style="background:#74c0fc;"></span>Європа</li>
+            <li class="legend-item"><span class="legend-dot" style="background:#8ce99a;"></span>Азія</li>
+            <li class="legend-item"><span class="legend-dot" style="background:#ffa94d;"></span>Африка</li>
+            <li class="legend-item"><span class="legend-dot" style="background:#da77f2;"></span>Пн. Америка</li>
+            <li class="legend-item"><span class="legend-dot" style="background:#f783ac;"></span>Пд. Америка</li>
+            <li class="legend-item"><span class="legend-dot" style="background:#66d9e8;"></span>Океанія</li>
+            <li class="legend-item"><span class="legend-dot" style="background:#adb5bd;"></span>Антарктида</li>
+          </ul>
+        </section>
+
+        <!-- Country list -->
+        <section class="sidebar-section country-section" id="country-section" style="display:none;">
+          <h2 class="sidebar-section-title" id="country-section-title">Країни</h2>
+          <ul class="country-list" id="country-list"></ul>
+          <p class="disputed-note" id="disputed-note" style="display:none;">
+            ⚠️ Деякі спірні території (Крим, ДНР/ЛНР, Придністров'я, Абхазія, Південна Осетія, Північний Кіпр) не відображаються окремо на стандартних картах.
+          </p>
+        </section>
+
+      </aside>
+
+      <!-- ───── MAP ───── -->
+      <div class="map-wrapper" id="map-wrapper">
+        <svg id="world-map"></svg>
+
+        <!-- Tooltip -->
+        <div id="tooltip" class="tooltip" style="display:none;"></div>
+
+        <!-- Zoom controls -->
+        <div class="zoom-controls">
+          <button class="zoom-btn" id="zoom-in" title="Збільшити">+</button>
+          <button class="zoom-btn" id="zoom-out" title="Зменшити">−</button>
+          <button class="zoom-btn zoom-reset" id="zoom-reset" title="Скинути вигляд">⌂</button>
+        </div>
+
+        <!-- View toggle -->
+        <div class="view-toggle">
+          <button class="view-toggle-btn active" data-view="flat" title="Плоска карта">🗺</button>
+          <button class="view-toggle-btn" data-view="globe" title="Глобус">🌍</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Country popup modal -->
+  <div id="popup-overlay" class="popup-overlay" style="display:none">
+    <div class="popup" id="popup">
+      <div class="popup-header">
+        <span class="popup-flag" id="popup-flag"></span>
+        <h2 class="popup-title" id="popup-title"></h2>
+        <button class="popup-close" id="popup-close">✕</button>
+      </div>
+      <div id="popup-tags" class="popup-header-tags"></div>
+      <div class="popup-tabs">
+        <button class="popup-tab active" data-tab="info">Загальна інформація</button>
+        <button class="popup-tab" data-tab="tourism">Туризм та пам'ятки</button>
+      </div>
+      <div class="popup-body">
+        <div class="popup-tab-content" id="tab-info"></div>
+        <div class="popup-tab-content" id="tab-tourism" style="display:none"></div>
+        <div class="crimea-note" id="crimea-note" style="display:none">
+          ⚠️ Крим є частиною України, тимчасово окупованою Росією з 2014 року.
+        </div>
+      </div>
+      <div class="popup-footer">
+        <button class="btn-visited" id="btn-visited"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- D3 + TopoJSON from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
