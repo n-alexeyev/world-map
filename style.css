@@ -1026,3 +1026,33 @@ ul {
   color: var(--text-muted);
   margin-top: 2px;
 }
+
+/* ═══════════════════════════════════════════════════
+   COUNTRY LABELS
+═══════════════════════════════════════════════════ */
+.label-name {
+  font-size: 11px;
+  font-weight: 600;
+  fill: #e2e8f0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  text-shadow:
+     1px  1px 3px #0f1117,
+    -1px -1px 3px #0f1117,
+     1px -1px 3px #0f1117,
+    -1px  1px 3px #0f1117,
+     0    0   5px #0f1117;
+  letter-spacing: 0.2px;
+  user-select: none;
+}
+
+.label-capital {
+  font-size: 9px;
+  font-weight: 400;
+  fill: #8892a4;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  text-shadow:
+     1px  1px 3px #0f1117,
+    -1px -1px 3px #0f1117,
+     0    0   4px #0f1117;
+  user-select: none;
+}

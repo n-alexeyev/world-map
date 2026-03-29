@@ -359,6 +359,11 @@ const FILTER_LABELS = {
 const DEFAULT_LAND  = '#4a5568';
 const DEFAULT_STROKE = '#2d3748';
 
+// Label thresholds (area in px² * k²)
+const LABEL_THRESHOLD_NAME    = 1000;   // show country name
+const LABEL_THRESHOLD_CAPITAL = 5000;   // also show capital
+const LABEL_BASE_FS           = 11;     // base font-size in SVG units (constant screen px via /k)
+
 /* ═══════════════════════════════════════════════════
    VISITED STATE
 ═══════════════════════════════════════════════════ */
@@ -406,6 +411,8 @@ let globeRotation       = [0, 0, 0];
 let globeBaseScale      = null;
 let gMapGroup           = null;      // main SVG group (receives zoom transform in flat mode)
 let gMarkersOverlay     = null;      // markers overlay (always on top)
+let gLabelsGroup        = null;      // country labels group (inside gMapGroup)
+let gLabelData          = [];        // [{f, code, country, centroid, area, cx, cy}]
 let gWrapperEl          = null;      // #map-wrapper DOM element
 let gTooltipEl          = null;      // #tooltip DOM element
 let zoomInHandler       = null;
@@ -709,6 +716,58 @@ function redrawAllPaths() {
   if (gSelectionHighlight && !gSelectionHighlight.empty() && gSelectionHighlight.datum()) {
     gSelectionHighlight.attr('d', geoPath);
   }
+  updateGlobeLabels();
+}
+
+/** Update label visibility + positions in flat mode */
+function updateFlatLabels(k) {
+  if (!gLabelsGroup) return;
+  gLabelsGroup.selectAll('.country-label').each(function(d) {
+    const grp = d3.select(this);
+    const effectiveArea = d.area * k * k;
+    if (effectiveArea < LABEL_THRESHOLD_NAME) { grp.style('display', 'none'); return; }
+
+    const fs = LABEL_BASE_FS / k;
+    grp.style('display', '');
+    grp.select('.label-name').style('font-size', fs + 'px');
+
+    const showCapital = effectiveArea >= LABEL_THRESHOLD_CAPITAL;
+    grp.select('.label-capital')
+      .style('display', showCapital ? '' : 'none')
+      .style('font-size', (fs * 0.78) + 'px')
+      .attr('dy', (fs * 1.5) + 'px');
+  });
+}
+
+/** Reposition and show/hide labels in globe mode */
+function updateGlobeLabels() {
+  if (viewMode !== 'globe' || !gLabelsGroup || !geoProjection || !globeBaseScale) return;
+  const r      = geoProjection.rotate();
+  const center = [-r[0], -r[1]];
+  const k      = geoProjection.scale() / globeBaseScale;
+
+  gLabelsGroup.selectAll('.country-label').each(function(d) {
+    const grp = d3.select(this);
+    // Hide if on back of globe
+    if (d3.geoDistance(d.centroid, center) > Math.PI / 2 - 0.08) {
+      grp.style('display', 'none'); return;
+    }
+    const p = geoProjection(d.centroid);
+    if (!p) { grp.style('display', 'none'); return; }
+
+    const effectiveArea = d.area * k * k;
+    if (effectiveArea < LABEL_THRESHOLD_NAME) { grp.style('display', 'none'); return; }
+
+    const fs = LABEL_BASE_FS / k;
+    grp.style('display', '').attr('transform', `translate(${p[0]},${p[1]})`);
+    grp.select('.label-name').style('font-size', fs + 'px');
+
+    const showCapital = effectiveArea >= LABEL_THRESHOLD_CAPITAL;
+    grp.select('.label-capital')
+      .style('display', showCapital ? '' : 'none')
+      .style('font-size', (fs * 0.78) + 'px')
+      .attr('dy', (fs * 1.5) + 'px');
+  });
 }
 
 /** Reposition microstate markers; hides them if on back of globe */
@@ -830,6 +889,15 @@ function switchViewMode(mode) {
     svgSelection.call(zoomBehavior);
     svgSelection.on('dblclick.zoom', null);
     svgSelection.call(zoomBehavior.transform, d3.zoomIdentity);
+
+    // Reset label positions to flat centroids and show at k=1
+    if (gLabelsGroup) {
+      gLabelsGroup.selectAll('.country-label').each(function(d) {
+        if (d && !isNaN(d.cx) && !isNaN(d.cy))
+          d3.select(this).attr('transform', `translate(${d.cx},${d.cy})`);
+      });
+      updateFlatLabels(1);
+    }
 
     // Restore flat zoom button handlers
     const ZOOM_STEP = 1.6;
@@ -1061,6 +1129,7 @@ async function initMap() {
         const [sx, sy] = event.transform.apply(geoProjection(coords));
         d3.select(this).attr('transform', `translate(${sx},${sy})`);
       });
+      updateFlatLabels(event.transform.k);
     });
 
   svgSelection.call(zoomBehavior);
@@ -1130,6 +1199,46 @@ async function initMap() {
     });
   }
   renderMarkers();
+
+  // ── Country labels ──
+  gLabelsGroup = gMapGroup.append('g')
+    .attr('class', 'labels-group')
+    .style('pointer-events', 'none');
+
+  gLabelData = geoFeatures
+    .filter(f => COUNTRIES[+f.id] && !POINT_COUNTRIES[+f.id])
+    .map(f => {
+      const code    = +f.id;
+      const country = COUNTRIES[code];
+      const centroid = d3.geoCentroid(f);
+      const area    = geoPath.area(f);
+      const proj    = geoPath.centroid(f);
+      const cx = proj[0], cy = proj[1];
+      return { f, code, country, centroid, area, cx, cy };
+    })
+    .filter(d => d.area > 0 && isFinite(d.area) && !isNaN(d.cx) && !isNaN(d.cy));
+
+  gLabelsGroup.selectAll('.country-label')
+    .data(gLabelData)
+    .join('g')
+      .attr('class', 'country-label')
+      .attr('transform', d => `translate(${d.cx},${d.cy})`)
+      .each(function(d) {
+        const grp = d3.select(this);
+        grp.append('text')
+          .attr('class', 'label-name')
+          .attr('text-anchor', 'middle')
+          .attr('dy', '0.35em')
+          .text(d.country.name);
+        grp.append('text')
+          .attr('class', 'label-capital')
+          .attr('text-anchor', 'middle')
+          .attr('dy', '1.5em')
+          .style('display', 'none')
+          .text(d.country.capital || '');
+      });
+
+  updateFlatLabels(1);
 
   // ── Zoom buttons (via handler vars so they can be swapped in globe mode) ──
   const ZOOM_STEP = 1.6;
