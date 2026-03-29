@@ -359,10 +359,11 @@ const FILTER_LABELS = {
 const DEFAULT_LAND  = '#4a5568';
 const DEFAULT_STROKE = '#2d3748';
 
-// Label thresholds (area in px² * k²)
-const LABEL_THRESHOLD_NAME    = 1000;   // show country name
-const LABEL_THRESHOLD_CAPITAL = 5000;   // also show capital
-const LABEL_BASE_FS           = 11;     // base font-size in SVG units (constant screen px via /k)
+// Label thresholds — based on d3.geoArea() (steradians, projection-independent)
+// effectiveArea = sphereArea * k²  must exceed threshold to show
+const LABEL_THRESHOLD_NAME    = 0.025;  // Russia≈0.42, Germany≈0.0088, shows at k≥1.7
+const LABEL_THRESHOLD_CAPITAL = 0.008;  // show capital at roughly 2x more zoom than name
+const LABEL_BASE_FS           = 11;     // constant screen font size in px
 
 /* ═══════════════════════════════════════════════════
    VISITED STATE
@@ -719,21 +720,21 @@ function redrawAllPaths() {
   updateGlobeLabels();
 }
 
-/** Update label visibility + positions in flat mode */
+/** Update label visibility + font-size in flat mode */
 function updateFlatLabels(k) {
   if (!gLabelsGroup) return;
   gLabelsGroup.selectAll('.country-label').each(function(d) {
     const grp = d3.select(this);
-    const effectiveArea = d.area * k * k;
-    if (effectiveArea < LABEL_THRESHOLD_NAME) { grp.style('display', 'none'); return; }
+    const ea  = d.sphereArea * k * k;
+    if (ea < LABEL_THRESHOLD_NAME) { grp.style('display', 'none'); return; }
 
     const fs = LABEL_BASE_FS / k;
     grp.style('display', '');
     grp.select('.label-name').style('font-size', fs + 'px');
 
-    const showCapital = effectiveArea >= LABEL_THRESHOLD_CAPITAL;
+    const showCap = ea >= LABEL_THRESHOLD_CAPITAL;
     grp.select('.label-capital')
-      .style('display', showCapital ? '' : 'none')
+      .style('display', showCap ? '' : 'none')
       .style('font-size', (fs * 0.78) + 'px')
       .attr('dy', (fs * 1.5) + 'px');
   });
@@ -748,23 +749,22 @@ function updateGlobeLabels() {
 
   gLabelsGroup.selectAll('.country-label').each(function(d) {
     const grp = d3.select(this);
-    // Hide if on back of globe
     if (d3.geoDistance(d.centroid, center) > Math.PI / 2 - 0.08) {
       grp.style('display', 'none'); return;
     }
     const p = geoProjection(d.centroid);
     if (!p) { grp.style('display', 'none'); return; }
 
-    const effectiveArea = d.area * k * k;
-    if (effectiveArea < LABEL_THRESHOLD_NAME) { grp.style('display', 'none'); return; }
+    const ea = d.sphereArea * k * k;
+    if (ea < LABEL_THRESHOLD_NAME) { grp.style('display', 'none'); return; }
 
     const fs = LABEL_BASE_FS / k;
     grp.style('display', '').attr('transform', `translate(${p[0]},${p[1]})`);
     grp.select('.label-name').style('font-size', fs + 'px');
 
-    const showCapital = effectiveArea >= LABEL_THRESHOLD_CAPITAL;
+    const showCap = ea >= LABEL_THRESHOLD_CAPITAL;
     grp.select('.label-capital')
-      .style('display', showCapital ? '' : 'none')
+      .style('display', showCap ? '' : 'none')
       .style('font-size', (fs * 0.78) + 'px')
       .attr('dy', (fs * 1.5) + 'px');
   });
@@ -1208,15 +1208,16 @@ async function initMap() {
   gLabelData = geoFeatures
     .filter(f => COUNTRIES[+f.id] && !POINT_COUNTRIES[+f.id])
     .map(f => {
-      const code    = +f.id;
-      const country = COUNTRIES[code];
-      const centroid = d3.geoCentroid(f);
-      const area    = geoPath.area(f);
-      const proj    = geoPath.centroid(f);
-      const cx = proj[0], cy = proj[1];
-      return { f, code, country, centroid, area, cx, cy };
+      const code       = +f.id;
+      const country    = COUNTRIES[code];
+      const centroid   = d3.geoCentroid(f);           // [lon, lat]
+      const sphereArea = d3.geoArea(f);               // steradians, scale-independent
+      const proj       = geoProjection(centroid);     // project geographic centroid
+      const cx = proj ? proj[0] : NaN;
+      const cy = proj ? proj[1] : NaN;
+      return { f, code, country, centroid, sphereArea, cx, cy };
     })
-    .filter(d => d.area > 0 && isFinite(d.area) && !isNaN(d.cx) && !isNaN(d.cy));
+    .filter(d => d.sphereArea > 0 && isFinite(d.sphereArea) && !isNaN(d.cx) && !isNaN(d.cy));
 
   gLabelsGroup.selectAll('.country-label')
     .data(gLabelData)
