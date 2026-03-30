@@ -759,6 +759,11 @@ function updateGlobeLabels() {
   const center = [-r[0], -r[1]];
   const k      = geoProjection.scale() / globeBaseScale;
 
+  // In globe mode gMapGroup has NO CSS scale transform, so font-size is
+  // directly in screen pixels — use LABEL_BASE_FS fixed, not divided by k.
+  const fs    = LABEL_BASE_FS;
+  const fsCap = fs * 0.78;
+
   gLabelsGroup.selectAll('.country-label').each(function(d) {
     const grp = d3.select(this);
     if (d3.geoDistance(d.centroid, center) > Math.PI / 2 - 0.08) {
@@ -770,14 +775,13 @@ function updateGlobeLabels() {
     const ea = d.sphereArea * k * k;
     if (ea < LABEL_THRESHOLD_NAME) { grp.style('display', 'none'); return; }
 
-    const fs = LABEL_BASE_FS / k;
     grp.style('display', '').attr('transform', `translate(${p[0]},${p[1]})`);
     grp.select('.label-name').style('font-size', fs + 'px');
 
     const showCap = ea >= LABEL_THRESHOLD_CAPITAL;
     grp.select('.label-capital')
       .style('display', showCap ? '' : 'none')
-      .style('font-size', (fs * 0.78) + 'px')
+      .style('font-size', fsCap + 'px')
       .attr('dy', (fs * 1.5) + 'px');
   });
 }
