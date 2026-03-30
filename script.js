@@ -365,6 +365,18 @@ const LABEL_THRESHOLD_NAME    = 0.025;  // Russia≈0.42, Germany≈0.0088, show
 const LABEL_THRESHOLD_CAPITAL = 0.008;  // show capital at roughly 2x more zoom than name
 const LABEL_BASE_FS           = 11;     // constant screen font size in px
 
+// Manual centroid overrides for countries whose d3.geoCentroid() is pulled off
+// by overseas territories included in the world-atlas polygon
+const LABEL_CENTROID_OVERRIDES = {
+  250: [  2.5,  46.5],  // France      — French Guiana pulls centroid into Spain
+  528: [  5.3,  52.3],  // Netherlands — Caribbean islands pull centroid west
+  620: [ -8.0,  39.5],  // Portugal    — Azores & Madeira pull centroid west
+  578: [ 15.0,  65.0],  // Norway      — Bouvet / Svalbard pull centroid south
+  840: [-98.5,  39.5],  // USA         — Alaska & Hawaii pull centroid far west
+  208: [ 10.5,  56.0],  // Denmark     — Greenland / Faroe pull centroid north
+  724: [ -3.7,  40.4],  // Spain       — Canary Islands pull centroid south-west
+};
+
 /* ═══════════════════════════════════════════════════
    VISITED STATE
 ═══════════════════════════════════════════════════ */
@@ -1210,7 +1222,7 @@ async function initMap() {
     .map(f => {
       const code       = +f.id;
       const country    = COUNTRIES[code];
-      const centroid   = d3.geoCentroid(f);           // [lon, lat]
+      const centroid   = LABEL_CENTROID_OVERRIDES[code] || d3.geoCentroid(f); // [lon, lat]
       const sphereArea = d3.geoArea(f);               // steradians, scale-independent
       const proj       = geoProjection(centroid);     // project geographic centroid
       const cx = proj ? proj[0] : NaN;
